@@ -616,6 +616,17 @@ Option<bool> vLLMConversationModel::validate_model(const nlohmann::json& model_c
     std::unordered_map<std::string, std::string> headers;
     std::map<std::string, std::string> res_headers;
     std::string res;
+
+    std::string api_key;
+    if(model_config.count("api_key") != 0) {
+        if(!model_config["api_key"].is_string()) {
+            return Option<bool>(400, "API key is not a string");
+        }
+        api_key = model_config["api_key"].get<std::string>();
+        headers["Authorization"] = "Bearer " + api_key;
+    }
+
+
     auto res_code = RemoteEmbedder::call_remote_api("GET", get_list_models_url(model_config["vllm_url"]), "", res, res_headers, headers);
 
     if(res_code == 408) {
@@ -713,6 +724,10 @@ Option<std::string> vLLMConversationModel::get_answer(const std::string& context
     req_body["messages"].push_back(message);
 
     std::string res;
+    if(model_config.count("api_key") != 0) {
+        headers["Authorization"] = "Bearer " + model_config["api_key"].get<std::string>();
+    }
+
     auto res_code = RemoteEmbedder::call_remote_api("POST", get_chat_completion_url(vllm_url), req_body.dump(), res, res_headers, headers);
 
     if(res_code == 408) {
@@ -794,6 +809,10 @@ Option<std::string> vLLMConversationModel::get_standalone_question(const nlohman
     message["content"] = standalone_question;
 
     req_body["messages"].push_back(message);
+
+    if(model_config.count("api_key") != 0) {
+        headers["Authorization"] = "Bearer " + model_config["api_key"].get<std::string>();
+    }
 
     auto res_code = RemoteEmbedder::call_remote_api("POST", get_chat_completion_url(vllm_url), req_body.dump(), res, res_headers, headers);
 
