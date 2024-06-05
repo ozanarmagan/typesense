@@ -87,7 +87,8 @@ Option<std::string> WhisperModel::transcribe(const std::string& audio_base64) {
     for(int i = 0; i < whisper_full_n_segments(ctx); i++) {
         ss << whisper_full_get_segment_text(ctx, i);
     }
-
-    return Option<std::string>(ss.str());
+    
+    std::string result = ss.str();
+    return Option<std::string>(StringUtils::trim(result));
 }
 
