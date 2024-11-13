@@ -5,7 +5,7 @@ CLIPImageEmbedder::CLIPImageEmbedder(const std::shared_ptr<Ort::Session>& sessio
 }
 
 embedding_res_t CLIPImageEmbedder::embed(const std::string& encoded_image) {
-
+    std::unique_lock<std::mutex> lock(mutex_);
     // process image
     auto processed_image_op = image_processor_.process_image(encoded_image);
 
@@ -54,7 +54,7 @@ embedding_res_t CLIPImageEmbedder::embed(const std::string& encoded_image) {
 std::vector<embedding_res_t> CLIPImageEmbedder::batch_embed(const std::vector<std::string>& inputs) {
     std::vector<processed_image_t> processed_images;
     std::unordered_map<int, embedding_res_t> results;
-
+    std::unique_lock<std::mutex> lock(mutex_);
     int i = 0;
     for (const auto& input : inputs) {
         auto processed_image_op = image_processor_.process_image(input);
