@@ -3844,6 +3844,9 @@ bool get_nl_search_models(const std::shared_ptr<http_req>& req, const std::share
 
      for(auto& model: models) {
          Collection::hide_credential(model, "api_key");
+         Collection::hide_credential(model, "access_token");
+         Collection::hide_credential(model, "refresh_token");
+         Collection::hide_credential(model, "client_secret");
      }
 
     res->set_200(models.dump());
@@ -3862,6 +3865,9 @@ bool get_nl_search_model(const std::shared_ptr<http_req>& req, const std::shared
 
     auto model = model_op.get();
     Collection::hide_credential(model, "api_key");
+    Collection::hide_credential(model, "access_token");
+    Collection::hide_credential(model, "refresh_token");
+    Collection::hide_credential(model, "client_secret");
 
     res->set_200(model.dump());
     return true;
@@ -3893,6 +3899,9 @@ bool post_nl_search_model(const std::shared_ptr<http_req>& req, const std::share
     }
 
     Collection::hide_credential(model_json, "api_key");
+    Collection::hide_credential(model_json, "access_token");
+    Collection::hide_credential(model_json, "refresh_token");
+    Collection::hide_credential(model_json, "client_secret");
 
     res->set_200(model_json.dump());
     return true;
@@ -3926,6 +3935,9 @@ bool put_nl_search_model(const std::shared_ptr<http_req>& req, const std::shared
     auto model = model_op.get();
 
     Collection::hide_credential(model, "api_key");
+    Collection::hide_credential(model, "access_token");
+    Collection::hide_credential(model, "refresh_token");
+    Collection::hide_credential(model, "client_secret");
 
     res->set_200(model.dump());
     return true;
