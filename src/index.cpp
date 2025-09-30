@@ -2642,6 +2642,11 @@ Option<bool> Index::run_search(search_args* search_params) {
                 filter_by += " && ";
             }
         }
+        
+        // Remove trailing " && " if exists.
+        if(filter_by.size() >= 4 && filter_by.substr(filter_by.size() - 4) == " && ") {
+            filter_by = filter_by.substr(0, filter_by.size() - 4);
+        }
 
         filter_node_t* new_filter_tree_root = nullptr;
         Option<bool> filter_op = filter::parse_filter_query(filter_by, search_schema, store, "", new_filter_tree_root,
