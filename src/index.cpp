@@ -2617,37 +2617,47 @@ Option<bool> Index::run_search(search_args* search_params) {
                             group_by_values_list);
 
         std::string filter_by;
+        std::vector<std::string> clauses;
+
         for (size_t i = 0; i < group_by_fields.size(); i++) {
             const auto& field_name = group_by_fields[i].field_name;
-            auto& values = group_by_values_list[i];
-            if (values.empty()) {
+            const auto& values = group_by_values_list[i];
+
+            std::vector<std::string> valid_values;
+            valid_values.reserve(values.size());
+            for (const auto& value : values) {
+                if (!value.empty()) {
+                    if (group_by_fields[i].is_string) {
+                        valid_values.push_back("`" + value + "`");
+                    } else {
+                        valid_values.push_back(value);
+                    }
+                }
+            }
+            if (valid_values.empty()) {
                 continue;
             }
 
-            filter_by += (field_name + ": [");
-            for (const auto& value: values) {
-                if(value.empty()) {
-                    continue;
-                }
-
-                if(group_by_fields[i].is_string) {
-                    filter_by += ("`" + value + "`,");
-                } else {
-                    filter_by += (value + ",");
+            std::string clause = field_name + ": [";
+            for (size_t j = 0; j < valid_values.size(); j++) {
+                clause += valid_values[j];
+                if (j + 1 < valid_values.size()) {
+                    clause += ",";
                 }
             }
-            filter_by[filter_by.size() - 1] = ']';
+            clause += "]";
 
-            if (i + 1 < group_by_fields.size()) {
+            clauses.push_back(std::move(clause));
+        }
+
+        for (size_t i = 0; i < clauses.size(); i++) {
+            filter_by += clauses[i];
+            if (i + 1 < clauses.size()) {
                 filter_by += " && ";
             }
         }
-        
-        // Remove trailing " && " if exists.
-        if(filter_by.size() >= 4 && filter_by.substr(filter_by.size() - 4) == " && ") {
-            filter_by = filter_by.substr(0, filter_by.size() - 4);
-        }
 
+        
         filter_node_t* new_filter_tree_root = nullptr;
         Option<bool> filter_op = filter::parse_filter_query(filter_by, search_schema, store, "", new_filter_tree_root,
                                                             search_params->validate_field_names);
