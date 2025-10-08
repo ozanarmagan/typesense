@@ -2537,7 +2537,8 @@ Option<bool> Collection::init_index_search_args(collection_search_args_t& coll_a
     */
 
     // Set query to * if it is semantic search
-    if(!vector_query.field_name.empty() && processed_search_fields.empty()) {
+    bool changed_to_wildcard = (!vector_query.field_name.empty() && processed_search_fields.empty());
+    if(changed_to_wildcard) {
         query = "*";
     }
 
@@ -2555,6 +2556,23 @@ Option<bool> Collection::init_index_search_args(collection_search_args_t& coll_a
     std::vector<std::string> q_include_tokens;
     std::vector<std::string> q_unstemmed_tokens;
 
+    std::unique_ptr<std::vector<query_tokens_t>> raw_field_query_tokens;
+    std::unique_ptr<std::vector<std::string>> raw_q_include_tokens;
+    std::unique_ptr<std::vector<std::string>> raw_q_unstemmed_tokens;
+    if(changed_to_wildcard) {
+        raw_field_query_tokens = std::make_unique<std::vector<query_tokens_t>>();
+        raw_q_include_tokens = std::make_unique<std::vector<std::string>>();
+        raw_q_unstemmed_tokens = std::make_unique<std::vector<std::string>>();
+        raw_field_query_tokens->emplace_back(query_tokens_t{});
+        parse_search_query(raw_query, *raw_q_include_tokens, *raw_q_unstemmed_tokens,
+                           raw_field_query_tokens->at(0).q_exclude_tokens, raw_field_query_tokens->at(0).q_phrases, "",
+                           false, stopwords_set);
+    } else {
+        raw_field_query_tokens.reset(&field_query_tokens);
+        raw_q_include_tokens.reset(&q_include_tokens);
+        raw_q_unstemmed_tokens.reset(&q_unstemmed_tokens);
+    }
+
     if(weighted_search_fields.size() == 0) {
         if(!ignored_missing_fields) {
             // has to be a wildcard query
@@ -2563,7 +2581,7 @@ Option<bool> Collection::init_index_search_args(collection_search_args_t& coll_a
                                field_query_tokens[0].q_exclude_tokens, field_query_tokens[0].q_phrases, "",
                                false, stopwords_set);
 
-            process_filter_sort_curations(filter_sort_curations, q_include_tokens, token_order, filter_tree_root_guard,
+            process_filter_sort_curations(filter_sort_curations, *raw_q_include_tokens, token_order, filter_tree_root_guard,
                                      included_ids, excluded_ids, curation_metadata, curated_sort_by, enable_typos_for_numerical_tokens,
                                      enable_typos_for_alpha_numerical_tokens, validate_field_names);
 
@@ -2593,7 +2611,7 @@ Option<bool> Collection::init_index_search_args(collection_search_args_t& coll_a
         // process filter curations first, before synonyms (order is important)
 
         // included_ids, excluded_ids
-        process_filter_sort_curations(filter_sort_curations, q_include_tokens, token_order, filter_tree_root_guard,
+        process_filter_sort_curations(filter_sort_curations, *raw_q_include_tokens, token_order, filter_tree_root_guard,
                                  included_ids, excluded_ids, curation_metadata, curated_sort_by, enable_typos_for_numerical_tokens,
                                  enable_typos_for_alpha_numerical_tokens, validate_field_names);
 

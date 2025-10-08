@@ -5689,3 +5689,73 @@ TEST_F(CollectionCurationTest, DiversityOverride) {
         ASSERT_EQ(std::to_string(5 - i), res_obj["hits"][i]["document"]["id"]);
     }
 }
+
+    TEST_F(CollectionCurationTest, VectorSearchWithCuration) {
+        auto& ov_manager = CurationIndexManager::get_instance();
+        nlohmann::json schema = R"({
+            "name": "products",
+            "fields": [
+                {"name": "product_name", "type": "string"},
+                {"name": "color", "type": "string", "facet": true},
+                {"name": "embedding", "type": "float[]", "embed": {
+                    "from": ["product_name"],
+                    "model_config": {
+                        "model_name": "ts/e5-small"
+                    }
+                }}
+            ]
+        })"_json;
+
+        EmbedderManager::set_model_dir("/tmp/typesense_test/models");
+        auto op = collectionManager.create_collection(schema);
+        ASSERT_TRUE(op.ok());
+        Collection* coll1 = op.get();
+
+        auto curation_item = R"({
+           "id": "curation1",
+           "rule": {
+                "query": "test",
+                "match": "contains"
+            },
+            "filter_by": "color:=red",
+            "excludes": [],
+            "includes": [],
+            "stop_processing": true,
+            "filter_curated_hits": false,
+            "remove_matched_tokens": true
+        })"_json;
+        curation_t curation;
+        auto parse_op = curation_t::parse(curation_item, "curation1",
+                                            curation);
+        ASSERT_TRUE(parse_op.ok());
+        ov_manager.upsert_curation_item("index", curation_item);
+        coll1->set_curation_sets({"index"});
+
+        nlohmann::json doc1 = R"({
+            "id": "1",
+            "product_name": "test product one",
+            "color": "red"
+        })"_json;
+        nlohmann::json doc2 = R"({
+            "id": "2",
+            "product_name": "test product two",
+            "color": "blue"
+        })"_json;
+        nlohmann::json doc3 = R"({
+            "id": "3",
+            "product_name": "another product",
+            "color": "red"
+        })"_json;
+
+
+        ASSERT_TRUE(coll1->add(doc1.dump()).ok());
+        ASSERT_TRUE(coll1->add(doc2.dump()).ok());
+        ASSERT_TRUE(coll1->add(doc3.dump()).ok());
+        
+        auto results = coll1->search("test", {"embedding"}, "", {}, {}, {0}, 10, 1, FREQUENCY, {true}, Index::DROP_TOKENS_THRESHOLD,
+                                     spp::sparse_hash_set<std::string>(),
+                                     {"embedding"}).get();
+        ASSERT_EQ(2, results["found"].get<size_t>());
+        ASSERT_EQ("1", results["hits"][0]["document"]["id"].get<std::string>());
+        ASSERT_EQ("3", results["hits"][1]["document"]["id"].get<std::string>());
+    }
