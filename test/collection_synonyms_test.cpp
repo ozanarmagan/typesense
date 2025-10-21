@@ -1968,3 +1968,64 @@ TEST_F(CollectionSynonymsTest, DeEnLocaleFieldSpecificSynonyms) {
 
     collectionManager.drop_collection("de_en_test_coll");
 }
+
+TEST_F(CollectionSynonymsTest, SynonymsWontMatchPrefix) {
+    nlohmann::json schema = R"({
+        "name": "coll_prefix_test",
+        "fields": [
+          {"name": "title", "type": "string"}
+        ],
+        "synonym_sets": ["index"]
+    })"_json;
+
+    auto op = collectionManager.create_collection(schema);
+    ASSERT_TRUE(op.ok());
+    Collection* coll = op.get();
+
+    nlohmann::json doc;
+    doc["id"] = "0";
+    doc["title"] = "variant";
+    ASSERT_TRUE(coll->add(doc.dump()).ok());
+
+    nlohmann::json synonym = R"({
+        "id": "run-syn",
+        "synonyms": ["virginia", "va"]
+    })"_json;
+
+    ASSERT_TRUE(manager.upsert_synonym_item("index", synonym).ok());
+
+    // search for prefix "ru"
+    auto res = coll->search("virginia", {"title"}, "", {}, {}, {2}, 10, 1,FREQUENCY, {true},
+                             Index::DROP_TOKENS_THRESHOLD, spp::sparse_hash_set<std::string>(),
+                             spp::sparse_hash_set<std::string>(), 10, "",
+                             30, 4, "", 40,
+                             {}, {}, {}, 0,"<mark>",
+                             "</mark>", {}, 1000,true,
+                             false, true, "", false,
+                             6000*1000, 4, 7, fallback, 4,
+                             {off}, INT16_MAX, INT16_MAX,2,
+                             2, false, "", true,
+                             0, max_score, 100, 0, 0, 0,
+                             "exhaustive", 30000, 2, "",
+                             {},{}, "right_to_left", true,
+                             true, false, "", "", "",
+                             "", false, true, false).get();
+    ASSERT_EQ(0, res["hits"].size());
+
+    res = coll->search("va", {"title"}, "", {}, {}, {2}, 10, 1,FREQUENCY, {true},
+                             Index::DROP_TOKENS_THRESHOLD, spp::sparse_hash_set<std::string>(),
+                             spp::sparse_hash_set<std::string>(), 10, "",
+                             30, 4, "", 40,
+                             {}, {}, {}, 0,"<mark>",
+                             "</mark>", {}, 1000,true,
+                             false, true, "", false,
+                             6000*1000, 4, 7, fallback, 4,
+                             {off}, INT16_MAX, INT16_MAX,2,
+                             2, false, "", true,
+                             0, max_score, 100, 0, 0, 0,
+                             "exhaustive", 30000, 2, "",
+                             {},{}, "right_to_left", true,
+                             true, false, "", "", "",
+                             "", false, true, false).get();
+    ASSERT_EQ(1, res["hits"].size());
+}

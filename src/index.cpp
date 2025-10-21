@@ -3790,7 +3790,9 @@ Option<bool> Index::search(std::vector<query_tokens_t>& field_query_tokens, cons
         for(const auto& q_syn_vec: field_query_tokens[0].q_synonyms) {
             std::vector<token_t> q_pos_syn;
             for(size_t j=0; j < q_syn_vec.size(); j++) {
-                bool is_prefix = (j == q_syn_vec.size()-1);
+                // Enable prefix matching only if it is the last token and the last token is an original query token
+                bool is_prefix = (j == q_syn_vec.size()-1) && 
+                                 (q_syn_vec.back() == field_query_tokens[0].q_include_tokens.back().value);
                 std::string token_val = q_syn_vec[j];
                 if (do_stemming) {
                     auto stemmer = search_schema.at(the_fields[0].name).get_stemmer();
