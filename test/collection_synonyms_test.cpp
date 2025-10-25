@@ -2029,3 +2029,68 @@ TEST_F(CollectionSynonymsTest, SynonymsWontMatchPrefix) {
                              "", false, true, false).get();
     ASSERT_EQ(1, res["hits"].size());
 }
+
+TEST_F(CollectionSynonymsTest, SynonymResolutionPreferExactMatch) {
+    nlohmann::json schema = R"({
+        "name": "coll_synonym_exact_match",
+        "fields": [
+            {"name": "title", "type": "string"}
+        ],
+        "synonym_sets": ["index"]
+    })"_json;
+
+    auto op = collectionManager.create_collection(schema);
+    ASSERT_TRUE(op.ok());
+    Collection* coll = op.get();
+
+    std::vector<std::vector<std::string>> records = {
+        {"gold"},
+        {"headphones"}
+    };
+
+    for(size_t i=0; i<records.size(); i++) {
+        nlohmann::json doc;
+
+        doc["id"] = std::to_string(i);
+        doc["title"] = records[i][0];
+
+        auto add_op = coll->add(doc.dump());
+        ASSERT_TRUE(add_op.ok());
+    }
+
+    nlohmann::json synonym = R"({
+        "id": "gold-syn",
+        "synonyms": ["gold", "auksines"]
+    })"_json;
+
+    ASSERT_TRUE(manager.upsert_synonym_item("index", synonym).ok());
+
+    nlohmann::json synonym2 = R"({
+        "id": "headphones-syn",
+        "synonyms": ["headphones", "ausines"]
+    })"_json;
+
+    ASSERT_TRUE(manager.upsert_synonym_item("index", synonym2).ok());
+
+    // Search for "ausines" with synonym_num_typos = 1 should match "headphones" synonym
+    uint32_t synonym_num_typos = 1;
+    auto res = coll->search("ausines", {"title"}, "", {},
+                            {}, {2}, 10, 1,FREQUENCY, {true},
+                            Index::DROP_TOKENS_THRESHOLD, spp::sparse_hash_set<std::string>(),
+                            spp::sparse_hash_set<std::string>(), 10, "",
+                            30, 4, "", 40,
+                            {}, {}, {}, 0,"<mark>",
+                            "</mark>", {}, 1000,true,
+                            false, true, "", false,
+                            6000*1000, 4, 7, fallback, 4,
+                            {off}, INT16_MAX, INT16_MAX,2,
+                            2, false, "", true,
+                            0, max_score, 100, 0, 0, 0,
+                            "exhaustive", 30000, 2, "",
+                            {},{}, "right_to_left", true,
+                            true, false, "", "", "",
+                            "", false, true, false, true, synonym_num_typos).get();
+    ASSERT_EQ(1, res["hits"].size());
+    ASSERT_EQ("1", res["hits"][0]["document"]["id"].get<std::string>());
+    ASSERT_EQ("headphones", res["hits"][0]["document"]["title"].get<std::string>());
+}
