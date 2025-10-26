@@ -2002,7 +2002,7 @@ TEST_F(CollectionSchemaChangeTest, EmbeddingFieldAlterUpdateOldDocs) {
     ASSERT_EQ(0, search_res.get()["hits"][0]["document"].count("nested.hello"));
 }
 
-TEST_F(CollectionSchemaChangeTest, AlterAddSameFieldTwice) {
+TEST_F(CollectionSchemaChangeTest,AlterAddSameFieldTwice) {
     nlohmann::json schema = R"({
             "name": "objects",
             "fields": [
@@ -2033,4 +2033,32 @@ TEST_F(CollectionSchemaChangeTest, AlterAddSameFieldTwice) {
         })"_json;
     schema_change_op = coll->alter(schema_change);
     ASSERT_TRUE(schema_change_op.ok());
+}
+
+TEST_F(CollectionSchemaChangeTest, AlterUnsortableFieldWithSortEnabled) {
+    nlohmann::json schema = R"({
+            "name": "objects",
+            "fields": [
+                {"name": "title", "type": "string"}
+            ]
+        })"_json;
+
+    auto op = collectionManager.create_collection(schema);
+    ASSERT_TRUE(op.ok());
+    Collection* coll = op.get();
+
+    nlohmann::json schema_change = R"({
+            "fields": [
+                {"name": "test", "type": "auto", "sort": true}
+            ]
+        })"_json;
+    auto schema_change_op = coll->alter(schema_change);
+    ASSERT_FALSE(schema_change_op.ok());
+    ASSERT_EQ("The type `auto` is not sortable.", schema_change_op.error());
+
+    // Get fields to verify no update happened
+    auto fields =  coll->get_fields();
+    ASSERT_EQ(1, fields.size());
+    ASSERT_EQ("title", fields[0].name);
+    ASSERT_EQ("string", fields[0].type);
 }

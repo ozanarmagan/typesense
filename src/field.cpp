@@ -280,6 +280,18 @@ Option<bool> field::json_field_to_field(bool enable_nested_fields, nlohmann::jso
         }
     }
 
+    bool is_sortable_type = (field_json["type"] == field_types::INT32 || field_json["type"] == field_types::INT32_ARRAY ||
+                                 field_json["type"] == field_types::INT64 || field_json["type"] == field_types::INT64_ARRAY ||
+                                 field_json["type"] == field_types::FLOAT || field_json["type"] == field_types::FLOAT_ARRAY ||
+                                 field_json["type"] == field_types::BOOL ||
+                                 field_json["type"] == field_types::GEOPOINT || field_json["type"] == field_types::GEOPOINT_ARRAY ||
+                                 field_json["type"] == field_types::GEOPOLYGON || field_json["type"] == field_types::STRING ||
+                                 field_json["type"] == field_types::STRING_ARRAY);
+    if(field_json[fields::sort].get<bool>() && !is_sortable_type) {
+        return Option<bool>(400, std::string("The type `") +
+                                 field_json["type"].get<std::string>() + std::string("` is not sortable."));
+    }
+
     if(!field_json[fields::embed].empty()) {
         if(field_json[fields::type] != field_types::FLOAT_ARRAY) {
             return Option<bool>(400, "Fields with the `embed` parameter can only be of type `float[]`.");
