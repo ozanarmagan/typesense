@@ -2002,7 +2002,7 @@ TEST_F(CollectionSchemaChangeTest, EmbeddingFieldAlterUpdateOldDocs) {
     ASSERT_EQ(0, search_res.get()["hits"][0]["document"].count("nested.hello"));
 }
 
-TEST_F(CollectionSchemaChangeTest,AlterAddSameFieldTwice) {
+TEST_F(CollectionSchemaChangeTest, AlterAddSameFieldTwice) {
     nlohmann::json schema = R"({
             "name": "objects",
             "fields": [
