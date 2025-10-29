@@ -348,6 +348,27 @@ Option<uint64_t> NaturalLanguageSearchModelManager::process_nl_query_and_augment
     bool has_nl_query = false;
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    if(req_params.count("preset") != 0) {
+        nlohmann::json preset_json;
+        auto preset_op = CollectionManager::get_instance().get_preset(req_params["preset"], preset_json);
+        if(preset_op.ok()) {
+            if(preset_json.is_object() && preset_json.count("value") != 0 && preset_json["value"].is_object()) {
+                preset_json = preset_json["value"];
+                if(preset_json.contains("nl_query") && preset_json["nl_query"].is_boolean()) {
+                    req_params["nl_query"] = preset_json["nl_query"].get<bool>() ? "true" : "false";
+                }
+
+                if(preset_json.contains("q") && preset_json["q"].is_string() && !preset_json["q"].get<std::string>().empty()) {
+                    req_params["q"] = preset_json["q"].get<std::string>();
+                }
+
+                if(preset_json.contains("nl_model_id") && preset_json["nl_model_id"].is_string() && !preset_json["nl_model_id"].get<std::string>().empty()) {
+                    req_params["nl_model_id"] = preset_json["nl_model_id"].get<std::string>();
+                }
+            }
+        }
+    }
+
     if(req_params.count("nl_query") != 0 && req_params["nl_query"] == "true" && req_params.count("q") != 0 && !req_params["q"].empty()) {
         nl_query = req_params["q"];
         req_params["_original_nl_query"] = nl_query;
