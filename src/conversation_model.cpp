@@ -98,7 +98,6 @@ Option<std::string> ConversationModel::get_answer(const std::string& context, co
     if(!guardrail_check_op.ok()) {
         return Option<std::string>(guardrail_check_op.code(), guardrail_check_op.error());
     }
-    
 
     std::string system_prompt = "";
     if(model_config.count("system_prompt") != 0 && model_config["system_prompt"].is_string()) {
