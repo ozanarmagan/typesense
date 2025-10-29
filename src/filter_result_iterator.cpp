@@ -1010,7 +1010,7 @@ void filter_result_iterator_t::init(const bool& enable_lazy_evaluation, const bo
         }
 
         bool is_referenced = coll->referenced_in.count(ref_collection_name) > 0,
-                has_reference = ref_collection->is_referenced_in(collection_name);
+                has_reference = coll->references(ref_collection_name);
         if (!is_referenced && !has_reference) {
             status = Option<bool>(400, "Failed to join on `" + ref_collection_name + "`: No reference field found.");
             validity = invalid;
@@ -1761,8 +1761,8 @@ void filter_result_iterator_t::init(const bool& enable_lazy_evaluation, const bo
             auto approx_filter_value_match = UINT32_MAX;
 
             while (tokenizer.next(str_token, token_index)) {
-                if (str_token.size() > 100) {
-                    str_token.erase(100);
+                if (str_token.size() > f.truncate_len && f.truncate_len > 0) {
+                    str_token.erase(f.truncate_len);
                 }
                 str_tokens.push_back(str_token);
 

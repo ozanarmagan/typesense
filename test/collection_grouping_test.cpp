@@ -1974,32 +1974,35 @@ TEST_F(CollectionGroupingTest, InfixSearch) {
     ASSERT_EQ("0", res_obj["grouped_hits"][0]["hits"][1]["document"]["id"]);
 }
 
-TEST_F(CollectionGroupingTest, GroupByWithFilterBy) {
+TEST_F(CollectionGroupingTest, GroupMaxCandidates) {
     auto schema_json =
             R"({
                 "name": "coll",
                 "fields": [
-                    {"name":"field1","facet":true,"type":"string"},
-                    {"name":"field2","facet":true,"type":"string", "optional": true}
+                    {"name": "facet_field", "type": "string", "facet": true}
                 ]
             })"_json;
-    std::vector<nlohmann::json> documents = {
-            R"({"field1": "A"})"_json,
-            R"({"field1": "B"})"_json
-    };
 
     auto collection_create_op = collectionManager.create_collection(schema_json);
     ASSERT_TRUE(collection_create_op.ok());
-    for (auto const &json: documents) {
-        auto add_op = collection_create_op.get()->add(json.dump());
+    for (size_t i = 0; i < 1000; i++) {
+        nlohmann::json doc;
+        if (i % 100 == 0) {
+            doc["facet_field"] = "repeated_value";
+        } else {
+            doc["facet_field"] = std::to_string(i);
+        }
+        auto add_op = collection_create_op.get()->add(doc.dump());
         ASSERT_TRUE(add_op.ok());
     }
 
     std::map<std::string, std::string> req_params = {
             {"collection", "coll"},
             {"q", "*"},
-            {"group_by", "field1,field2"},
-            {"group_limit", "1"}
+            {"group_by", "facet_field"},
+            {"group_limit", "1"},
+            {"per_page", "50"},
+            {"page", "1"}
     };
     nlohmann::json embedded_params;
     std::string json_res;
@@ -2008,4 +2011,36 @@ TEST_F(CollectionGroupingTest, GroupByWithFilterBy) {
 
     auto search_op = collectionManager.do_search(req_params, embedded_params, json_res, now_ts);
     ASSERT_TRUE(search_op.ok());
+
+    auto res_obj = nlohmann::json::parse(json_res);
+    ASSERT_EQ(986, res_obj["found"]);
+
+    req_params["page"] = "19";
+    search_op = collectionManager.do_search(req_params, embedded_params, json_res, now_ts);
+    ASSERT_TRUE(search_op.ok());
+    res_obj = nlohmann::json::parse(json_res);
+    ASSERT_EQ(986, res_obj["found"]);
+    ASSERT_EQ(50, res_obj["grouped_hits"].size());
+
+    req_params["page"] = "20";
+    search_op = collectionManager.do_search(req_params, embedded_params, json_res, now_ts);
+    ASSERT_TRUE(search_op.ok());
+    res_obj = nlohmann::json::parse(json_res);
+    // Actual `found` count is returned when we get to the last page.
+    ASSERT_EQ(991, res_obj["found"]);
+    ASSERT_EQ(41, res_obj["grouped_hits"].size());
+
+    req_params = {
+            {"collection", "coll"},
+            {"q", "*"},
+            {"group_by", "facet_field"},
+            {"group_limit", "1"},
+            {"group_max_candidates", "1000"}, // Upper limit of the group count.
+            {"per_page", "50"},
+            {"page", "1"}
+    };
+    search_op = collectionManager.do_search(req_params, embedded_params, json_res, now_ts);
+    ASSERT_TRUE(search_op.ok());
+    res_obj = nlohmann::json::parse(json_res);
+    ASSERT_EQ(991, res_obj["found"]);
 }
