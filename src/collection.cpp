@@ -8504,7 +8504,7 @@ Option<bool> collection_search_args_t::init(std::map<std::string, std::string>& 
 
     // end check for mandatory params
 
-    const std::string& raw_query = req_params[QUERY];
+    const std::string& raw_query = req_params.find(RAW_QUERY) != req_params.end() ? req_params[RAW_QUERY] : req_params[QUERY];
     std::vector<uint32_t> num_typos = {2};
     size_t min_len_1typo = 4;
     size_t min_len_2typo = 7;

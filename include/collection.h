@@ -185,6 +185,8 @@ struct collection_search_args_t {
     static constexpr auto DIVERSITY_LAMBDA = "diversity_lambda";
     static constexpr auto DIVERSITY_LIMIT = "diversity_limit";
 
+    static constexpr auto RAW_QUERY = "raw_query";
+
     std::string raw_query;
     std::vector<std::string> search_fields;
     std::string filter_query;
