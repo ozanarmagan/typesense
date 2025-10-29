@@ -65,10 +65,7 @@ Option<bool> ConversationModel::validate_model(const nlohmann::json& model_confi
     return Option<bool>(400, "Model namespace `" + model_namespace + "` is not supported.");
 }
 
-Option<std::string> ConversationModel::get_answer(const std::string& context, const std::string& prompt, const nlohmann::json& model_config) {
-    
-    const std::string& model_namespace = get_model_namespace(model_config["model_name"].get<std::string>());
-
+Option<bool> ConversationModel::run_input_guardrail(const std::string& prompt, const nlohmann::json& model_config) {
     if(model_config.count("input_guardrail_prompt") != 0) {
         std::string guardrail_prompt = R"(
             You are an AI assistant that helps people find information.
@@ -81,14 +78,25 @@ Option<std::string> ConversationModel::get_answer(const std::string& context, co
         model_config_copy.erase("input_guardrail_prompt");
         auto guardrail_op = ConversationModel::get_answer(guardrail_prompt, prompt, model_config_copy);
         if(!guardrail_op.ok()) {
-            return guardrail_op;
+            return Option<bool>(guardrail_op.code(), guardrail_op.error());
         }
         std::string guardrail_response = guardrail_op.get();
         guardrail_response = StringUtils::trim(guardrail_response);
         std::transform(guardrail_response.begin(), guardrail_response.end(), guardrail_response.begin(), ::toupper);
         if(guardrail_response != "SAFE") {
-            return Option<std::string>(400, "The question was deemed unsafe or inappropriate to answer.");
+            return Option<bool>(400, "The question was deemed unsafe or inappropriate to answer.");
         }
+    }
+    return Option<bool>(true);
+}
+
+Option<std::string> ConversationModel::get_answer(const std::string& context, const std::string& prompt, const nlohmann::json& model_config) {
+    
+    const std::string& model_namespace = get_model_namespace(model_config["model_name"].get<std::string>());
+
+    auto guardrail_check_op = run_input_guardrail(prompt, model_config);
+    if(!guardrail_check_op.ok()) {
+        return Option<std::string>(guardrail_check_op.code(), guardrail_check_op.error());
     }
     
 
@@ -119,26 +127,9 @@ Option<std::string> ConversationModel::get_answer_stream(const std::string& cont
 
     const std::string& model_namespace = get_model_namespace(model_config["model_name"].get<std::string>());
 
-    if(model_config.count("input_guardrail_prompt") != 0) {
-        std::string guardrail_prompt = R"(
-            You are an AI assistant that helps people find information.
-            Your task is to determine if the user's question is safe and appropriate to answer. Use these instructions to guide your decision:
-            " )" + model_config["input_guardrail_prompt"].get<std::string>() + R"(
-            If the question is safe and appropriate, respond with \"SAFE\".
-            If the question is not safe or appropriate, respond with \"UNSAFE\".
-            Only respond with \"SAFE\" or \"UNSAFE\", nothing else.)";
-        nlohmann::json model_config_copy = model_config;
-        model_config_copy.erase("input_guardrail_prompt");
-        auto guardrail_op = ConversationModel::get_answer(guardrail_prompt, prompt, model_config_copy);
-        if(!guardrail_op.ok()) {
-            return guardrail_op;
-        }
-        std::string guardrail_response = guardrail_op.get();
-        guardrail_response = StringUtils::trim(guardrail_response);
-        std::transform(guardrail_response.begin(), guardrail_response.end(), guardrail_response.begin(), ::toupper);
-        if(guardrail_response != "SAFE") {
-            return Option<std::string>(400, "The question was deemed unsafe or inappropriate to answer.");
-        }
+    auto guardrail_check_op = run_input_guardrail(prompt, model_config);
+    if(!guardrail_check_op.ok()) {
+        return Option<std::string>(guardrail_check_op.code(), guardrail_check_op.error());
     }
 
     std::string system_prompt = "";
