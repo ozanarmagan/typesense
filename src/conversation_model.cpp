@@ -103,7 +103,7 @@ Option<std::string> ConversationModel::get_answer(const std::string& context, co
     if(model_config.count("system_prompt") != 0 && model_config["system_prompt"].is_string()) {
         system_prompt = model_config["system_prompt"].get<std::string>();
     }
-    
+
     if(model_namespace == "openai") {
         return OpenAIConversationModel::get_answer(context, prompt, system_prompt, model_config);
     } else if(model_namespace == "cloudflare") {
