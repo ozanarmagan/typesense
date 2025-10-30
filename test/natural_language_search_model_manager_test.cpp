@@ -1346,3 +1346,113 @@ TEST_F(NaturalLanguageSearchModelManagerTest, GetNLQueryParamsFromPreset) {
   ASSERT_EQ(req_params["q"], "test");
   ASSERT_EQ(req_params["nl_model_id"], model_id);
 }
+
+TEST_F(NaturalLanguageSearchModelManagerTest, HighlightOriginalQuery) {
+    // Mock successful validation for model creation
+  NaturalLanguageSearchModel::add_mock_response(R"({
+    "object": "chat.completion",
+    "model": "gpt-3.5-turbo",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Hello!"
+        },
+        "finish_reason": "stop"
+      }
+    ]
+  })", 200, {});
+  
+  // Mock response for the actual NL query processing
+  NaturalLanguageSearchModel::add_mock_response(R"({
+    "object": "chat.completion",
+    "model": "gpt-3.5-turbo",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"q\": \"bar\",\n  \"filter_by\": \"points:>100\",\n  \"sort_by\": \"points:desc\"\n}",
+          "refusal": null,
+          "annotations": []
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 920,
+      "completion_tokens": 58,
+      "total_tokens": 978,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "audio_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      }
+    }
+  })", 200, {});
+
+  nlohmann::json titles_schema = R"({
+    "name": "titles",
+    "fields": [
+      {"name": "title", "type": "string"},
+      {"name": "points", "type": "int32"}
+    ]
+  })"_json;
+
+  auto coll_create_op = collectionManager.create_collection(titles_schema);
+  ASSERT_TRUE(coll_create_op.ok());
+  auto coll = coll_create_op.get();
+
+  nlohmann::json doc;
+  doc["title"] = "Foo";
+  doc["points"] = 150;
+  auto insert_op = coll->add(doc.dump());
+  ASSERT_TRUE(insert_op.ok());
+
+  std::map<std::string, std::string> req_params;
+  req_params["nl_query"] = "true";
+  req_params["q"] = "Foo over 100 points";
+  req_params["collection"] = "titles";
+  req_params["query_by"] = "title";
+
+  nlohmann::json model_config = R"({
+    "model_name": "openai/gpt-3.5-turbo",
+    "api_key": "YOUR_OPENAI_API_KEY",
+    "max_bytes": 1024,
+    "temperature": 0.0
+  })"_json;
+  std::string model_id = "default";
+  auto result = NaturalLanguageSearchModelManager::add_model(model_config, model_id, false);
+  ASSERT_TRUE(result.ok());
+
+  auto nl_search_op = NaturalLanguageSearchModelManager::process_nl_query_and_augment_params(req_params);
+  ASSERT_TRUE(nl_search_op.ok());
+  ASSERT_EQ(req_params["filter_by"], "points:>100");
+  ASSERT_EQ(req_params["sort_by"], "points:desc");
+  ASSERT_EQ(req_params["q"], "bar");
+  ASSERT_EQ(req_params["processed_by_nl_model"], "true");
+  ASSERT_EQ(req_params["_llm_generated_params"], R"(["filter_by","q","sort_by"])");
+  ASSERT_EQ(req_params["_original_llm_filter_by"], "points:>100");
+  ASSERT_EQ(req_params["llm_generated_filter_by"], "points:>100");
+  ASSERT_EQ(req_params["_original_nl_query"], "Foo over 100 points");
+  ASSERT_EQ(req_params["raw_query"], "Foo over 100 points");
+
+  std::string results_str;
+  nlohmann::json embedded_params;
+  auto search_op = collectionManager.do_search(req_params, embedded_params, results_str, 0);
+  ASSERT_TRUE(search_op.ok());
+
+  nlohmann::json results_json = nlohmann::json::parse(results_str);
+
+  ASSERT_EQ(results_json["found"], 1);
+  ASSERT_EQ(results_json["hits"][0]["document"]["title"], "Foo");
+  ASSERT_EQ(results_json["hits"][0]["document"]["points"], 150);
+  ASSERT_EQ(results_json["hits"][0]["highlight"]["title"]["snippet"].get<std::string>(), "<mark>Foo</mark>");
+}
