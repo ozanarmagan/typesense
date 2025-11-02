@@ -1990,3 +1990,32 @@ TEST_F(CollectionAllFieldsTest, FieldNameEmpty) {
     ASSERT_FALSE(create_op.ok());
     ASSERT_EQ("Field name cannot be empty.", create_op.error());
 }
+
+TEST_F(CollectionAllFieldsTest, AvoidDuplicateDynamicFields) {
+    nlohmann::json schema = R"({
+        "name": "test",
+        "fields": [
+            {"name": "product", "type": "auto"},
+            {"name": "title", "type": "auto"},
+            {"name": "description", "type": "string"}
+        ]
+    })"_json;
+
+    auto create_op = collectionManager.create_collection(schema);
+    ASSERT_TRUE(create_op.ok());
+
+    Collection* collection = create_op.get();
+    auto fields = collection->get_fields();
+    ASSERT_EQ(3, fields.size());
+
+    nlohmann::json doc;
+    doc["id"] = "0";
+    doc["product"] = "Running Shoes";
+    doc["title"] = "Nike Shoes";
+    doc["description"] = "A nice pair of running shoes.";
+    
+    auto add_op = collection->add(doc.dump(), CREATE);
+    ASSERT_TRUE(add_op.ok());
+    fields = collection->get_fields();
+    ASSERT_EQ(3, fields.size());
+}
