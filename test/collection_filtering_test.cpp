@@ -3686,26 +3686,26 @@ TEST_F(CollectionFilteringTest, NestedObjectFieldsFiltering) {
     std::vector<nlohmann::json> documents = {
             R"({
                 "name": "Pasta",
-                "ingredients": [{"name": "cheese", "concentration": 40}, {"name" : "spinach", "concentration": 10},
+                "ingredients": [{"name": "Che,ese", "concentration": 40}, {"name" : "spinach", "concentration": 10},
                                 {"name": "jalepeno", "concentration": 20}]
             })"_json,
             R"({
                 "name": "Pizza",
-                "ingredients": [{"name": "cheese", "concentration": 30}, {"name": "pizza sauce", "concentration": 30},
+                "ingredients": [{"name": "chee.se", "concentration": 30}, {"name": "pizza sauce", "concentration": 30},
                                 {"name": "olives", "concentration": 30}]
             })"_json,
             R"({
                 "name": "Lasagna",
-                "ingredients": [{"name": "cheese", "concentration": 60}, {"name": "jalepeno", "concentration": 20},
+                "ingredients": [{"name": "Cheese", "concentration": 60}, {"name": "jalepeno", "concentration": 20},
                                 {"name": "olives", "concentration": 20}]
             })"_json,
             R"({
                 "name": "Popcorn",
-                "ingredients": [{"name": "cheese", "concentration": 30}]
+                "ingredients": [{"name": "chee.se", "concentration": 30}]
             })"_json,
             R"({
                 "name": "Pizza Rolls",
-                "ingredients": [{"name": "cheese", "concentration": 60}, {"name": "pizza sauce", "concentration": 5},
+                "ingredients": [{"name": "chee/se", "concentration": 60}, {"name": "pizza sauce", "concentration": 5},
                                 {"name" : "corn", "concentration": 40}]
             })"_json
     };
