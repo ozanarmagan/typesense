@@ -870,7 +870,7 @@ Option<uint32_t> Collection::index_in_memory(nlohmann::json &document, uint32_t 
 
     std::unordered_set<std::string> dummy;
     Index::batch_memory_index(index, index_batch, default_sorting_field, search_schema, embedding_fields,
-                              fallback_field_type, token_separators, symbols_to_index, true, dummy);
+                              fallback_field_type, token_separators, symbols_to_index, true, dummy, lock);
 
     num_documents += 1;
     return Option<>(200);
@@ -883,7 +883,7 @@ size_t Collection::batch_index_in_memory(std::vector<index_record>& index_record
     std::unordered_set<std::string> found_fields;
     size_t num_indexed = Index::batch_memory_index(index, index_records, default_sorting_field,
                                                    search_schema, embedding_fields, fallback_field_type,
-                                                   token_separators, symbols_to_index, true, found_fields,
+                                                   token_separators, symbols_to_index, true, found_fields, lock,
                                                    remote_embedding_batch_size, remote_embedding_timeout_ms,
                                                    remote_embedding_num_tries, generate_embeddings,
                                                    false, tsl::htrie_map<char, field>(), collection_name);
@@ -901,7 +901,7 @@ size_t Collection::batch_index_in_memory(std::vector<index_record>& index_record
     lock.unlock();
 
     Index::update_async_references(collection_name, index_records, found_async_referenced_ins);
-
+    LOG(INFO) << "Releasing the lock to batch index in memory";
     return num_indexed;
 }
 
@@ -6380,10 +6380,13 @@ Option<bool> Collection::batch_alter_data(const std::vector<field>& alter_fields
             }
 
             std::unordered_set<std::string> dummy;
+            shlock.unlock();
+            ulock.lock();
             Index::batch_memory_index(index, iter_batch, default_sorting_field, search_schema, embedding_fields,
-                                      fallback_field_type, token_separators, symbols_to_index, true, dummy,
+                                      fallback_field_type, token_separators, symbols_to_index, true, dummy, ulock,
                                       200, 60000, 2, found_embedding_field, true, schema_additions);
-
+            ulock.unlock();
+            shlock.lock();
             if(found_embedding_field) {
                 for(auto& index_record : iter_batch) {
                     if(index_record.indexed.ok()) {

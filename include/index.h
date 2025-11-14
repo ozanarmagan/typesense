@@ -828,6 +828,7 @@ public:
                                      const std::vector<char>& symbols_to_index,
                                      const bool do_validation,
                                      std::unordered_set<std::string>& found_fields,
+                                     std::unique_lock<std::shared_mutex>& coll_write_lock,
                                      const size_t remote_embedding_batch_size = 200,
                                      const size_t remote_embedding_timeout_ms = 60000,
                                      const size_t remote_embedding_num_tries = 2, const bool generate_embeddings = true,

@@ -582,6 +582,7 @@ size_t Index::batch_memory_index(Index *index,
                                  const std::vector<char>& symbols_to_index,
                                  const bool do_validation,
                                  std::unordered_set<std::string>& found_fields,
+                                 std::unique_lock<std::shared_mutex>& coll_write_lock,
                                  const size_t remote_embedding_batch_size,
                                  const size_t remote_embedding_timeout_ms, const size_t remote_embedding_num_tries,
                                  const bool generate_embeddings,
@@ -603,7 +604,7 @@ size_t Index::batch_memory_index(Index *index,
 
     // local is need to propogate the thread local inside threads launched below
     auto local_write_log_index = write_log_index;
-
+    coll_write_lock.unlock();
     for(size_t thread_id = 0; thread_id < num_threads && batch_index < iter_batch.size(); thread_id++) {
         size_t batch_len = window_size;
 
@@ -632,6 +633,7 @@ size_t Index::batch_memory_index(Index *index,
         cv_process.wait(lock_process, [&](){ return num_processed == num_queued; });
     }
 
+    coll_write_lock.lock();
     for(size_t i = 0; i < iter_batch.size(); i++) {
         auto& index_rec = iter_batch[i];
 
