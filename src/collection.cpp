@@ -901,7 +901,6 @@ size_t Collection::batch_index_in_memory(std::vector<index_record>& index_record
     lock.unlock();
 
     Index::update_async_references(collection_name, index_records, found_async_referenced_ins);
-    LOG(INFO) << "Releasing the lock to batch index in memory";
     return num_indexed;
 }
 
