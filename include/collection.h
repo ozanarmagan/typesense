@@ -713,6 +713,18 @@ private:
 
     std::string get_facet_str_val(const std::string& field_name, uint32_t facet_id);
 
+    Option<bool> index_preprocess(Index* index, std::vector<index_record>&  iter_batch,
+                                        const std::string& default_sorting_field,
+                                        const tsl::htrie_map<char, field> & actual_search_schema,
+                                        const tsl::htrie_map<char, field> & embedding_fields,
+                                        const std::string& fallback_field_type,
+                                        const std::vector<char>& token_separators,
+                                        const std::vector<char>& symbols_to_index,
+                                        const bool do_validation,
+                                        const size_t remote_embedding_batch_size = 200,
+                                        const size_t remote_embedding_timeout_ms = 60000,
+                                        const size_t remote_embedding_num_tries = 2, const bool generate_embeddings = true) const;
+
 public:
 
     enum {MAX_ARRAY_MATCHES = 5};
