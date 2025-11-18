@@ -713,7 +713,6 @@ private:
 
     std::string get_facet_str_val(const std::string& field_name, uint32_t facet_id);
 
-
 public:
 
     enum {MAX_ARRAY_MATCHES = 5};
