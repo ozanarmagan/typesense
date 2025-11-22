@@ -94,6 +94,8 @@ private:
 
     // Auto incrementing record ID used internally for indexing - not exposed to the client
     std::atomic<uint32_t> next_seq_id;
+    
+    std::atomic<uint32_t> schema_version;
 
     Store* store;
 
