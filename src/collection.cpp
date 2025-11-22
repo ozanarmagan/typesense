@@ -6385,12 +6385,13 @@ Option<bool> Collection::batch_alter_data(const std::vector<field>& alter_fields
             }
 
             std::unordered_set<std::string> dummy;
+            uint32_t validation_schema_version;
             shlock.unlock();
             ulock.lock();
             do {
                 ulock.unlock();
                 shlock.lock();
-                auto validation_schema_version = schema_version.load();
+                validation_schema_version = schema_version.load();
                 Index::batch_validate_and_preprocess(index, iter_batch, default_sorting_field, search_schema, embedding_fields,
                                     fallback_field_type, token_separators, symbols_to_index, true, 200, 60000, 2, found_embedding_field);
                 shlock.unlock();
