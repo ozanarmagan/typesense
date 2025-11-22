@@ -6390,12 +6390,12 @@ Option<bool> Collection::batch_alter_data(const std::vector<field>& alter_fields
             do {
                 ulock.unlock();
                 shlock.lock();
-                auto validation_schema_version = schema_version;
+                auto validation_schema_version = schema_version.load()
                 Index::batch_validate_and_preprocess(index, iter_batch, default_sorting_field, search_schema, embedding_fields,
                                     fallback_field_type, token_separators, symbols_to_index, true, 200, 60000, 2, found_embedding_field);
                 shlock.unlock();
                 ulock.lock();
-            } while(validation_schema_version != schema_version);
+            } while(validation_schema_version != schema_version.load());
             ++schema_version;
 
             Index::batch_memory_index(index, iter_batch, default_sorting_field, search_schema, embedding_fields,
