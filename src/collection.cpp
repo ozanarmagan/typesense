@@ -1534,6 +1534,9 @@ Option<bool> Collection::validate_and_standardize_sort_fields(const std::vector<
                 }
             } else {
                 if(field_it == search_schema.end()) {
+                    if(!validate_field_names) {
+                        continue;
+                    }
                     std::string error = "Could not find a field named `" + actual_field_name + "` in the schema for sorting.";
                     return Option<bool>(404, error);
                 }
@@ -1717,6 +1720,9 @@ Option<bool> Collection::validate_and_standardize_sort_fields(const std::vector<
             const auto field_it = search_schema.find(sort_field_std.name);
 
             if(field_it == search_schema.end() || !field_it.value().sort || !field_it.value().index) {
+                if(!validate_field_names) {
+                    continue;
+                }
                 std::string error = "Could not find a field named `" + sort_field_std.name +
                                     "` in the schema for sorting.";
                 return Option<bool>(404, error);
