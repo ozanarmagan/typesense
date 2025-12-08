@@ -546,11 +546,11 @@ struct ref_include_exclude_fields {
     std::vector<ref_include_exclude_fields> nested_join_includes = {};
 };
 
-struct hnsw_index_t;
+struct vamana_index_t;
 
 struct sort_vector_query_t {
         vector_query_t query;
-        hnsw_index_t* vector_index;
+        vamana_index_t* vector_index;
 }; 
 
 struct sort_random_t {

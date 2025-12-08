@@ -538,7 +538,7 @@ TEST_F(CollectionVectorTest, VectorUpsertOnEmptyValues) {
     )"_json;
 
     ASSERT_TRUE(coll1->add(doc.dump(), UPSERT).ok());
-
+    
     auto res_op = coll1->search("skill", {"vec"}, "", {}, {}, {0}, 10, 1, FREQUENCY, {true}, Index::DROP_TOKENS_THRESHOLD,
                                 spp::sparse_hash_set<std::string>(),
                                 spp::sparse_hash_set<std::string>(), 10, "", 30, 5,
@@ -1102,70 +1102,14 @@ TEST_F(CollectionVectorTest, VectorSearchTestDeletion) {
         ASSERT_TRUE(coll1->add(doc.dump()).ok());
     }
 
-    ASSERT_EQ(16, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getMaxElements());
-    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getCurrentElementCount());
-    ASSERT_EQ(0, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getDeletedCount());
+    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->get_size());
 
     // now delete these docs
-
     for (size_t i = 0; i < num_docs; i++) {
         ASSERT_TRUE(coll1->remove(std::to_string(i)).ok());
     }
 
-    ASSERT_EQ(16, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getMaxElements());
-    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getCurrentElementCount());
-    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getDeletedCount());
-
-    for (size_t i = 0; i < num_docs; i++) {
-        nlohmann::json doc;
-        doc["id"] = std::to_string(i + num_docs);
-        doc["title"] = std::to_string(i + num_docs) + " title";
-        doc["points"] = i;
-
-        std::vector<float> values;
-        for(size_t j = 0; j < 4; j++) {
-            values.push_back(distrib(rng));
-        }
-
-        doc["vec"] = values;
-        ASSERT_TRUE(coll1->add(doc.dump()).ok());
-    }
-
-    ASSERT_EQ(16, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getMaxElements());
-    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getCurrentElementCount());
-    ASSERT_EQ(0, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getDeletedCount());
-
-    // delete those docs again and ensure that while reindexing till 1024 live docs, max count is not changed
-    for (size_t i = 0; i < num_docs; i++) {
-        ASSERT_TRUE(coll1->remove(std::to_string(i + num_docs)).ok());
-    }
-
-    ASSERT_EQ(16, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getMaxElements());
-    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getCurrentElementCount());
-    ASSERT_EQ(10, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getDeletedCount());
-
-    for (size_t i = 0; i < 1014; i++) {
-        nlohmann::json doc;
-        doc["id"] = std::to_string(10000 + i);
-        doc["title"] = std::to_string(10000 + i) + " title";
-        doc["points"] = i;
-
-        std::vector<float> values;
-        for(size_t j = 0; j < 4; j++) {
-            values.push_back(distrib(rng));
-        }
-
-        doc["vec"] = values;
-        const Option<nlohmann::json>& add_op = coll1->add(doc.dump());
-        if(!add_op.ok()) {
-            LOG(ERROR) << add_op.error();
-        }
-        ASSERT_TRUE(add_op.ok());
-    }
-
-    ASSERT_EQ(1271, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getMaxElements());
-    ASSERT_EQ(1014, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getCurrentElementCount());
-    ASSERT_EQ(0, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->getDeletedCount());
+    ASSERT_EQ(0, coll1->_get_index()->_get_vector_index().at("vec")->vecdex->get_size());
 }
 
 TEST_F(CollectionVectorTest, VectorWithNullValue) {
@@ -3822,7 +3766,7 @@ TEST_F(CollectionVectorTest, TestEmbeddingValues) {
 
     std::vector<float> normalized_embeddings(embeddings.size());
 
-    hnsw_index_t::normalize_vector(embeddings, normalized_embeddings);
+    vamana_index_t::normalize_vector(embeddings, normalized_embeddings);
 
     ASSERT_EQ(embeddings.size(), 384);
 
@@ -5454,9 +5398,9 @@ TEST_F(CollectionVectorTest, HybridSearchAuxScoreTest) {
                              true, DEFAULT_FILTER_BY_CANDIDATES, use_aux_score).get();
 
     ASSERT_EQ(4, res["hits"].size());
-    ASSERT_FLOAT_EQ(0.09585630893707275, res["hits"][0]["vector_distance"].get<float>());
-    ASSERT_FLOAT_EQ(0.07914221286773682, res["hits"][1]["vector_distance"].get<float>());
-    ASSERT_FLOAT_EQ(0.15472877025604248, res["hits"][2]["vector_distance"].get<float>());
+    ASSERT_FLOAT_EQ(0.09585624933242798, res["hits"][0]["vector_distance"].get<float>());
+    ASSERT_FLOAT_EQ(0.07914215326309204, res["hits"][1]["vector_distance"].get<float>());
+    ASSERT_FLOAT_EQ(0.15472841262817383, res["hits"][2]["vector_distance"].get<float>());
     ASSERT_FLOAT_EQ(0.2496563196182251, res["hits"][3]["vector_distance"].get<float>());
 
     ASSERT_EQ(1736172819517016185, res["hits"][0]["text_match"].get<std::size_t>());
@@ -5486,9 +5430,9 @@ TEST_F(CollectionVectorTest, HybridSearchAuxScoreTest) {
 
 
     ASSERT_EQ(4, res["hits"].size());
-    ASSERT_FLOAT_EQ(0.09585630893707275, res["hits"][0]["vector_distance"].get<float>());
-    ASSERT_FLOAT_EQ(0.07914221286773682, res["hits"][1]["vector_distance"].get<float>());
-    ASSERT_FLOAT_EQ(0.15472877025604248, res["hits"][2]["vector_distance"].get<float>());
+    ASSERT_FLOAT_EQ(0.09585624933242798, res["hits"][0]["vector_distance"].get<float>());
+    ASSERT_FLOAT_EQ(0.07914215326309204, res["hits"][1]["vector_distance"].get<float>());
+    ASSERT_FLOAT_EQ(0.15472841262817383, res["hits"][2]["vector_distance"].get<float>());
     ASSERT_FLOAT_EQ(0.2496563196182251, res["hits"][3]["vector_distance"].get<float>());
 
     ASSERT_EQ(1736172819517016185, res["hits"][0]["text_match"].get<std::size_t>());

@@ -29,7 +29,7 @@
 #include "synonym_index.h"
 #include "curation.h"
 #include "vector_query_ops.h"
-#include "hnswlib/hnswlib.h"
+#include "vamana.h"
 #include "filter.h"
 #include "facet_index.h"
 #include "numeric_range_trie.h"
@@ -324,20 +324,17 @@ struct index_record {
     }
 };
 
-class VectorFilterFunctor: public hnswlib::BaseFilterFunctor {
+class VectorFilterFunctor : public VamanaFilterBase {
     filter_result_iterator_t* const filter_result_iterator;
 
     const uint32_t* excluded_ids = nullptr;
     const uint32_t excluded_ids_length = 0;
-
 public:
-
     explicit VectorFilterFunctor(filter_result_iterator_t* const filter_result_iterator,
                                  const uint32_t* excluded_ids = nullptr, const uint32_t excluded_ids_length = 0) :
                                 filter_result_iterator(filter_result_iterator),
                                 excluded_ids(excluded_ids), excluded_ids_length(excluded_ids_length) {}
-
-    bool operator()(hnswlib::labeltype id) override {
+    bool operator()(uint32_t id) override { 
         if (filter_result_iterator->approx_filter_ids_length == 0 && excluded_ids_length == 0) {
             return true;
         }
@@ -355,26 +352,23 @@ public:
     }
 };
 
-struct hnsw_index_t {
-    hnswlib::InnerProductSpace* space;
-    hnswlib::HierarchicalNSW<float>* vecdex;
+struct vamana_index_t {
+    Vamana* vecdex = nullptr;
     size_t num_dim;
     vector_distance_type_t distance_type;
 
     // ensures that this index is not dropped when it's being repaired
     std::mutex repair_m;
 
-    hnsw_index_t(size_t num_dim, size_t init_size, vector_distance_type_t distance_type, size_t M = 16, size_t ef_construction = 200) :
-        space(new hnswlib::InnerProductSpace(num_dim)),
-        vecdex(new hnswlib::HierarchicalNSW<float>(space, init_size, M, ef_construction, 100, true)),
+    vamana_index_t(size_t num_dim, size_t init_size, vector_distance_type_t distance_type, size_t M = 16, size_t ef_construction = 200) :
+        vecdex(new Vamana(16, distance_type == vector_distance_type_t::cosine ? distance_metric_t::INNER_PRODUCT : distance_metric_t::L2, num_dim)),
         num_dim(num_dim), distance_type(distance_type) {
 
     }
 
-    ~hnsw_index_t() {
+    ~vamana_index_t() {
         std::lock_guard lk(repair_m);
         delete vecdex;
-        delete space;
     }
 
     // needed for cosine similarity
@@ -452,7 +446,7 @@ private:
     spp::sparse_hash_map<std::string, array_mapped_infix_t> infix_index;
 
     // vector field => vector index
-    spp::sparse_hash_map<std::string, hnsw_index_t*> vector_index;
+    spp::sparse_hash_map<std::string, vamana_index_t*> vector_index;
 
     // this is used for wildcard queries
     id_list_t* seq_ids;
@@ -718,7 +712,7 @@ public:
 
     const spp::sparse_hash_map<std::string, array_mapped_infix_t>& _get_infix_index() const;
 
-    const spp::sparse_hash_map<std::string, hnsw_index_t*>& _get_vector_index() const;
+    const spp::sparse_hash_map<std::string, vamana_index_t*>& _get_vector_index() const;
 
     facet_index_t* _get_facet_index() const;
 
@@ -1172,8 +1166,6 @@ public:
                                                     const uint32_t& seq_id) const;
 
     friend class filter_result_iterator_t;
-
-    void repair_hnsw_index();
 
     void aggregate_facet(const size_t group_limit, facet& this_facet, facet& acc_facet) const;
 

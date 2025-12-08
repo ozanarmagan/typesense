@@ -85,6 +85,8 @@ COPTS = [
     "-Werror=return-type",
     "-O2",
     "-g",
+    '-mavx2',
+    '-mfma'
 ]
 
 ASAN_COPTS = [
@@ -158,7 +160,9 @@ TEST_COPTS = [
     "-Wno-unused-parameter",
     "-Werror=return-type",
     "-g",
-    "-DTEST_BUILD"
+    "-DTEST_BUILD",
+    "-mavx2",
+    "-mfma"
 ]
 
 ASAN_COPTS = [

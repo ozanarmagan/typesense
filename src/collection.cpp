@@ -1491,7 +1491,7 @@ Option<bool> Collection::validate_and_standardize_sort_fields(const std::vector<
 
                 if(sort_field_std.vector_query.vector_index->distance_type == cosine) {
                     std::vector<float> normalized_values(sort_field_std.vector_query.query.values.size());
-                    hnsw_index_t::normalize_vector(sort_field_std.vector_query.query.values, normalized_values);
+                    vamana_index_t::normalize_vector(sort_field_std.vector_query.query.values, normalized_values);
                     sort_field_std.vector_query.query.values = normalized_values;
                 }
 
@@ -8220,7 +8220,7 @@ tsl::htrie_map<char, field> Collection::get_embedding_fields_unsafe() {
 }
 
 void Collection::do_housekeeping() {
-    index->repair_hnsw_index();
+    // TODO: Retire housekeeping
 }
 
 Option<bool> Collection::parse_and_validate_vector_query(const std::string& vector_query_str,
