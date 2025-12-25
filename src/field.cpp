@@ -81,10 +81,11 @@ void field::add_default_json_values(nlohmann::json& json) {
     if (json.count(fields::stem_dictionary) == 0) {
         json[fields::stem_dictionary] = "";
     }
-    if (json.count(fields::hnsw_params) == 0) {
-        json[fields::hnsw_params] = R"({
-                                            "M": 16,
-                                            "ef_construction": 200
+    if (json.count(fields::vamana_params) == 0) {
+        json[fields::vamana_params] = R"({
+                                            "R": 64,
+                                            "L_build": 100,
+                                            "alpha": 1.2
                                         })"_json;
     }
     if (json.count(fields::async_reference) == 0) {
@@ -375,39 +376,49 @@ Option<bool> field::json_field_to_field(bool enable_nested_fields, nlohmann::jso
         }
     }
 
-    if(field_json.count(fields::hnsw_params) != 0) {
-        if(!field_json[fields::hnsw_params].is_object()) {
-            return Option<bool>(400, "Property `" + fields::hnsw_params + "` must be an object.");
+    if(field_json.count(fields::vamana_params) != 0) {
+        if(!field_json[fields::vamana_params].is_object()) {
+            return Option<bool>(400, "Property `" + fields::vamana_params + "` must be an object.");
         }
 
-        if(field_json[fields::hnsw_params].count("ef_construction") != 0 &&
-           (!field_json[fields::hnsw_params]["ef_construction"].is_number_unsigned() ||
-            field_json[fields::hnsw_params]["ef_construction"] == 0)) {
-            return Option<bool>(400, "Property `" + fields::hnsw_params + ".ef_construction` must be a positive integer.");
+        if(field_json[fields::vamana_params].count("R") != 0 &&
+           (!field_json[fields::vamana_params]["R"].is_number_unsigned() ||
+            field_json[fields::vamana_params]["R"] == 0)) {
+            return Option<bool>(400, "Property `" + fields::vamana_params + ".R` must be a positive integer.");
         }
 
-        if(field_json[fields::hnsw_params].count("M") != 0 &&
-           (!field_json[fields::hnsw_params]["M"].is_number_unsigned() ||
-            field_json[fields::hnsw_params]["M"] == 0)) {
-            return Option<bool>(400, "Property `" + fields::hnsw_params + ".M` must be a positive integer.");
+        if(field_json[fields::vamana_params].count("L_build") != 0 &&
+           (!field_json[fields::vamana_params]["L_build"].is_number_unsigned() ||
+            field_json[fields::vamana_params]["L_build"] == 0)) {
+            return Option<bool>(400, "Property `" + fields::vamana_params + ".L_build` must be a positive integer.");
+        }
+
+        if(field_json[fields::vamana_params].count("alpha") != 0 &&
+           (!field_json[fields::vamana_params]["alpha"].is_number() ||
+           field_json[fields::vamana_params]["alpha"].get<float>() <= 0)) {
+            return Option<bool>(400, "Property `" + fields::vamana_params + ".alpha` must be a positive number.");
         }
 
         // remove unrelated properties except for m ef_construction and M
-        auto it = field_json[fields::hnsw_params].begin();
-        while(it != field_json[fields::hnsw_params].end()) {
-            if(it.key() != "max_elements" && it.key() != "ef_construction" && it.key() != "M" && it.key() != "ef") {
-                it = field_json[fields::hnsw_params].erase(it);
+        auto it = field_json[fields::vamana_params].begin();
+        while(it != field_json[fields::vamana_params].end()) {
+            if(it.key() != "R" && it.key() != "L_build" && it.key() != "alpha") {
+                it = field_json[fields::vamana_params].erase(it);
             } else {
                 ++it;
             }
         }
 
-        if(field_json[fields::hnsw_params].count("ef_construction") == 0) {
-            field_json[fields::hnsw_params]["ef_construction"] = 200;
+        if(field_json[fields::vamana_params].count("R") == 0) {
+            field_json[fields::vamana_params]["R"] = 64;
         }
 
-        if(field_json[fields::hnsw_params].count("M") == 0) {
-            field_json[fields::hnsw_params]["M"] = 16;
+        if(field_json[fields::vamana_params].count("L_build") == 0) {
+            field_json[fields::vamana_params]["L_build"] = 100;
+        }
+
+        if(field_json[fields::vamana_params].count("alpha") == 0) {
+            field_json[fields::vamana_params]["alpha"] = 1.2;
         }
     }
 
@@ -476,7 +487,7 @@ Option<bool> field::json_field_to_field(bool enable_nested_fields, nlohmann::jso
                   field_json[fields::nested_array], field_json[fields::num_dim], vec_dist,
                   field_json[fields::reference], field_json[fields::embed], field_json[fields::range_index], 
                   field_json[fields::store], field_json[fields::stem], field_json[fields::stem_dictionary],
-                  field_json[fields::hnsw_params], field_json[fields::async_reference], field_json[fields::token_separators],
+                  field_json[fields::vamana_params], field_json[fields::async_reference], field_json[fields::token_separators],
                   field_json[fields::symbols_to_index], field_json[fields::cascade_delete], field_json[fields::truncate_len])
     );
 
@@ -949,8 +960,8 @@ nlohmann::json field::field_to_json_field(const struct field& field) {
         }
     }
 
-    if (field.num_dim > 0 && !field.hnsw_params.empty()) {
-        field_val[fields::hnsw_params] = field.hnsw_params;
+    if (field.num_dim > 0 && !field.vamana_params.empty()) {
+        field_val[fields::vamana_params] = field.vamana_params;
     }
     return field_val;
 }

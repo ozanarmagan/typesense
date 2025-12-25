@@ -360,8 +360,8 @@ struct vamana_index_t {
     // ensures that this index is not dropped when it's being repaired
     std::mutex repair_m;
 
-    vamana_index_t(size_t num_dim, size_t init_size, vector_distance_type_t distance_type, size_t M = 16, size_t ef_construction = 200) :
-        vecdex(new Vamana(16, distance_type == vector_distance_type_t::cosine ? distance_metric_t::INNER_PRODUCT : distance_metric_t::L2, num_dim)),
+    vamana_index_t(size_t num_dim, vector_distance_type_t distance_type, size_t R) :
+        vecdex(new Vamana(R, distance_type == vector_distance_type_t::cosine ? distance_metric_t::INNER_PRODUCT : distance_metric_t::L2, num_dim)),
         num_dim(num_dim), distance_type(distance_type) {
 
     }

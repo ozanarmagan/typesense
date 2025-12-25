@@ -18,7 +18,7 @@ struct vector_query_t {
     bool query_doc_given = false;
     float alpha = 0.3;
 
-    uint32_t ef = 10;
+    uint32_t L = 40;
 
     std::vector<std::string> queries;
     std::vector<float> query_weights;

@@ -87,8 +87,8 @@ namespace fields {
 
     static const std::string store = "store";
     static const std::string truncate_len = "truncate_len";
-    
-    static const std::string hnsw_params = "hnsw_params";
+
+    static const std::string vamana_params = "vamana_params";
 }
 
 enum vector_distance_type_t {
@@ -150,7 +150,7 @@ struct field {
     std::string stem_dictionary = "";
     std::shared_ptr<Stemmer> stemmer;
   
-    nlohmann::json hnsw_params;
+    nlohmann::json vamana_params;
 
     std::vector<char> token_separators;
     std::vector<char> symbols_to_index;
@@ -161,13 +161,13 @@ struct field {
           bool index = true, std::string locale = "", int sort = -1, int infix = -1, bool nested = false,
           int nested_array = 0, size_t num_dim = 0, vector_distance_type_t vec_dist = cosine,
           std::string reference = "", const nlohmann::json& embed = nlohmann::json(), const bool range_index = false,
-          const bool store = true, const bool stem = false, const std::string& stem_dictionary = "", const nlohmann::json hnsw_params = nlohmann::json(),
+          const bool store = true, const bool stem = false, const std::string& stem_dictionary = "", const nlohmann::json vamana_params = nlohmann::json(),
           const bool async_reference = false, const nlohmann::json& token_separators = {}, const nlohmann::json& symbols_to_index = {},
           const bool cascade_delete = true, const uint32_t truncate_len = 100) :
             name(name), type(type), facet(facet), optional(optional), index(index), locale(locale),
             nested(nested), nested_array(nested_array), num_dim(num_dim), vec_dist(vec_dist), reference(reference),
             embed(embed), range_index(range_index), store(store), truncate_len(truncate_len), stem(stem), stem_dictionary(stem_dictionary),
-            hnsw_params(hnsw_params), is_async_reference(async_reference), cascade_delete(cascade_delete) {
+            vamana_params(vamana_params), is_async_reference(async_reference), cascade_delete(cascade_delete) {
 
         set_computed_defaults(sort, infix);
 
@@ -410,7 +410,7 @@ struct field {
                      json[fields::store].get<bool>(),
                      json[fields::stem].get<bool>(),
                      json[fields::stem_dictionary].get<std::string>(),
-                     json[fields::hnsw_params].get<nlohmann::json>(),
+                     json[fields::vamana_params].get<nlohmann::json>(),
                      json[fields::async_reference].get<bool>(),
                      json[fields::token_separators].get<nlohmann::json>(),
                      json[fields::symbols_to_index].get<nlohmann::json>(),

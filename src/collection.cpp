@@ -372,9 +372,9 @@ nlohmann::json Collection::get_summary_json() const {
             field_json[fields::range_index] = coll_field.range_index;
         }
 
-        // no need to sned hnsw_params for text fields
+        // no need to sned vamana params for text fields
         if(coll_field.num_dim > 0) {
-            field_json[fields::hnsw_params] = coll_field.hnsw_params;
+            field_json[fields::vamana_params] = coll_field.vamana_params;
         }
         if(coll_field.embed.count(fields::from) != 0) {
             field_json[fields::embed] = coll_field.embed;

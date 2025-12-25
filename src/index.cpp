@@ -67,8 +67,8 @@ Index::Index(const std::string& name, const uint32_t collection_id, const Store*
         }
 
         if(a_field.num_dim > 0) {
-            auto hnsw_index = new vamana_index_t(a_field.num_dim, 16, a_field.vec_dist, a_field.hnsw_params["M"].get<uint32_t>(), a_field.hnsw_params["ef_construction"].get<uint32_t>());
-            vector_index.emplace(a_field.name, hnsw_index);
+            auto vamana_index = new vamana_index_t(a_field.num_dim, a_field.vec_dist, a_field.vamana_params["R"].get<size_t>());
+            vector_index.emplace(a_field.name, vamana_index);
             continue;
         }
 
@@ -1055,15 +1055,15 @@ void Index::index_field_in_memory(const std::string& collection_name, const fiel
                                         std::vector<float> normalized_vals(afield.num_dim);
                                         vamana_index_t::normalize_vector(float_vals, normalized_vals);
                                         if(!record.is_update || vec_index->get_node_map().find(record.seq_id) == vec_index->get_node_map().end()) {
-                                            vec_index->insert(record.seq_id, normalized_vals, 48, 1.2f);
+                                            vec_index->insert(record.seq_id, normalized_vals, afield.vamana_params["L_build"].get<size_t>(), afield.vamana_params["alpha"].get<float>());
                                         } else {
-                                            vec_index->update(record.seq_id, normalized_vals, 48, 1.2f);
+                                            vec_index->update(record.seq_id, normalized_vals, afield.vamana_params["L_build"].get<size_t>(), afield.vamana_params["alpha"].get<float>());
                                         }
                                     } else {
                                         if(!record.is_update || vec_index->get_node_map().find(record.seq_id) == vec_index->get_node_map().end()) {
-                                            vec_index->insert(record.seq_id, float_vals, 48, 1.2f);
+                                            vec_index->insert(record.seq_id, float_vals, afield.vamana_params["L_build"].get<size_t>(), afield.vamana_params["alpha"].get<float>());
                                         } else {
-                                            vec_index->update(record.seq_id, float_vals, 48, 1.2f);
+                                            vec_index->update(record.seq_id, float_vals, afield.vamana_params["L_build"].get<size_t>(), afield.vamana_params["alpha"].get<float>());
                                         }
                                     }
                                 }
@@ -3392,7 +3392,7 @@ void process_results_bruteforce(filter_result_iterator_t* filter_result_iterator
     }
 }
 
-void process_results_hnsw_index(filter_result_iterator_t* filter_result_iterator, const vector_query_t& vector_query,
+void process_results_vamana_index(filter_result_iterator_t* filter_result_iterator, const vector_query_t& vector_query,
                                vamana_index_t* field_vector_index, VectorFilterFunctor& filterFunctor, size_t k,
                                 std::vector<std::pair<float, single_filter_result_t>>& dist_results, bool is_wildcard_non_phrase_query = false) {
 
@@ -3401,14 +3401,14 @@ void process_results_hnsw_index(filter_result_iterator_t* filter_result_iterator
         std::vector<float> normalized_q(vector_query.values.size());
         vamana_index_t::normalize_vector(vector_query.values, normalized_q);
         search_result_t vamana_result;
-        field_vector_index->vecdex->greedy_search(0, normalized_q, k, 128, vamana_result, &filterFunctor);
+        field_vector_index->vecdex->greedy_search(field_vector_index->vecdex->get_start_node(), normalized_q, k, vector_query.L, vamana_result, &filterFunctor);
         pairs.clear();
         for (const auto& res : vamana_result.nearest_nodes) {
             pairs.emplace_back(res.distance, res.id);
         }
     } else {
         search_result_t vamana_result;
-        field_vector_index->vecdex->greedy_search(0, vector_query.values, k, 128, vamana_result, &filterFunctor);
+        field_vector_index->vecdex->greedy_search(field_vector_index->vecdex->get_start_node(), vector_query.values, k, vector_query.L, vamana_result, &filterFunctor);
         pairs.clear();
         for (const auto& res : vamana_result.nearest_nodes) {
             pairs.emplace_back(res.distance, res.id);
@@ -3699,7 +3699,7 @@ Option<bool> Index::search(std::vector<query_tokens_t>& field_query_tokens, cons
             } else if(!no_group_filter_provided ||
                 (filter_id_count >= vector_query.flat_search_cutoff && filter_result_iterator_no_groups->validity == filter_result_iterator_t::valid)) {
                 dist_results.clear();
-                process_results_hnsw_index(filter_result_iterator_no_groups, vector_query, field_vector_index, filterFunctor, k, dist_results, true);
+                process_results_vamana_index(filter_result_iterator_no_groups, vector_query, field_vector_index, filterFunctor, k, dist_results, true);
             }
 
             search_cutoff = search_cutoff || filter_result_iterator_no_groups->validity == filter_result_iterator_t::timed_out;
@@ -4100,7 +4100,7 @@ Option<bool> Index::search(std::vector<query_tokens_t>& field_query_tokens, cons
                 auto k = vector_query.k == 0 ? std::max<size_t>(fetch_size, default_k)
                                              : vector_query.k;
 
-                process_results_hnsw_index(filter_result_iterator_no_groups, vector_query, field_vector_index, filterFunctor, k, dist_results);
+                process_results_vamana_index(filter_result_iterator_no_groups, vector_query, field_vector_index, filterFunctor, k, dist_results);
             }
 
             filter_result_iterator_no_groups->reset();
@@ -7649,8 +7649,8 @@ void Index::refresh_schemas(const std::vector<field>& new_fields, const std::vec
         search_schema.emplace(new_field.name, new_field);
 
         if(new_field.type == field_types::FLOAT_ARRAY && new_field.num_dim > 0) {
-            auto hnsw_index = new vamana_index_t(new_field.num_dim, 16, new_field.vec_dist, new_field.hnsw_params["M"].get<uint32_t>(), new_field.hnsw_params["ef_construction"].get<uint32_t>());
-            vector_index.emplace(new_field.name, hnsw_index);
+            auto vamana_index = new vamana_index_t(new_field.num_dim, new_field.vec_dist, new_field.vamana_params["R"].get<size_t>());
+            vector_index.emplace(new_field.name, vamana_index);
             continue;
         }
 
@@ -7776,8 +7776,8 @@ void Index::refresh_schemas(const std::vector<field>& new_fields, const std::vec
         }
 
         if(del_field.num_dim) {
-            auto hnsw_index = vector_index[del_field.name];
-            delete hnsw_index;
+            auto vamana_index = vector_index[del_field.name];
+            delete vamana_index;
             vector_index.erase(del_field.name);
         }
     }

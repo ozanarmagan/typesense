@@ -82,10 +82,11 @@ Option<Collection*> CollectionManager::init_collection(const nlohmann::json & co
             field_obj[fields::model_config] = nlohmann::json::object();
         }
 
-        if(field_obj.count(fields::hnsw_params) == 0) {
-            field_obj[fields::hnsw_params] = nlohmann::json::object();
-            field_obj[fields::hnsw_params]["ef_construction"] = 200;
-            field_obj[fields::hnsw_params]["M"] = 16;
+        if(field_obj.count(fields::vamana_params) == 0) {
+            field_obj[fields::vamana_params] = nlohmann::json::object();
+            field_obj[fields::vamana_params]["R"] = 64;
+            field_obj[fields::vamana_params]["L_build"] = 100;
+            field_obj[fields::vamana_params]["alpha"] = 1.2;
         }
 
         if(field_obj.count(fields::stem) == 0) {
@@ -154,7 +155,7 @@ Option<Collection*> CollectionManager::init_collection(const nlohmann::json & co
                 -1, field_obj[fields::infix], field_obj[fields::nested], field_obj[fields::nested_array],
                 field_obj[fields::num_dim], vec_dist_type, field_obj[fields::reference], field_obj[fields::embed],
                 field_obj[fields::range_index], field_obj[fields::store], field_obj[fields::stem], field_obj[fields::stem_dictionary],
-                field_obj[fields::hnsw_params], field_obj[fields::async_reference], field_obj[fields::token_separators],
+                field_obj[fields::vamana_params], field_obj[fields::async_reference], field_obj[fields::token_separators],
                 field_obj[fields::symbols_to_index], field_obj[fields::cascade_delete], field_obj[fields::truncate_len]);
 
         // value of `sort` depends on field type
