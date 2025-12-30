@@ -396,9 +396,9 @@ Option<bool> TextEmbedder::validate() {
         return Option<bool>(400, "Invalid model: attention_mask tensor not found");
     }
 
-    if(session_->GetInputCount() == 3 && tokenizer_->get_tokenizer_type() != TokenizerType::clip && tokenizer_->get_tokenizer_type() != TokenizerType::distilbert) {
+    if(session_->GetInputCount() == 3) {
         auto token_type_ids_name = session_->GetInputNameAllocated(2, allocator);
-        if (std::strcmp(token_type_ids_name.get(), "token_type_ids") != 0) {
+        if (std::strcmp(token_type_ids_name.get(), "token_type_ids") != 0 && std::strcmp(token_type_ids_name.get(), "pixel_values") != 0) {
             LOG(ERROR) << "Invalid model: token_type_ids tensor not found";
             return Option<bool>(400, "Invalid model: token_type_ids tensor not found");
         }
