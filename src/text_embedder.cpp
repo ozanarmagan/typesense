@@ -47,9 +47,6 @@ TextEmbedder::TextEmbedder(const std::string& model_name, const bool is_public_m
         tokenizer_ = std::make_unique<XLMRobertaTokenizer>(vocab_path);
     } else if(tokenizer_type == TokenizerType::clip) {
         tokenizer_ = std::make_unique<CLIPTokenizerWrapper>(vocab_path);
-        output_tensor_name = "text_embeds";
-        num_dim = 512;
-        return;
     }
     auto output_tensor_count = session_->GetOutputCount();
     for (size_t i = 0; i < output_tensor_count; i++) {
@@ -67,7 +64,14 @@ TextEmbedder::TextEmbedder(const std::string& model_name, const bool is_public_m
         }
     }
 
-    is_image_embedding_model = session_->GetInputCount() == 3 && std::string(session_->GetInputNameAllocated(2, Ort::AllocatorWithDefaultOptions()).get()) == std::string("pixel_values");
+    auto input_count = session_->GetInputCount();
+    for(size_t i = 0; i < input_count; i++) {
+        auto input_name = session_->GetInputNameAllocated(i, Ort::AllocatorWithDefaultOptions());
+        if(std::strcmp(input_name.get(), "pixel_values") == 0) {
+            is_image_embedding_model = true;
+            break;
+        }
+    }
 }
 
 TextEmbedder::TextEmbedder(const nlohmann::json& model_config, size_t num_dims, const bool has_custom_dims) {
@@ -245,6 +249,7 @@ std::vector<embedding_res_t> TextEmbedder::embed_documents(const std::vector<std
 
             std::vector<int64_t> input_ids_flatten;
             std::vector<int64_t> attention_mask_flatten;
+            std::vector<int64_t> token_type_ids_flatten;
 
             for (int i = 0; i < encoded_inputs.input_ids.size(); i++) {
                 for (int j = 0; j < encoded_inputs.input_ids[i].size(); j++) {
@@ -273,14 +278,8 @@ std::vector<embedding_res_t> TextEmbedder::embed_documents(const std::vector<std
                 } else {
                     input_node_names.push_back("token_type_ids");
 
-                    // edge case: xlm_roberta does not have token_type_ids, but if the model has it as input, we need to fill it with 0s
-                    if(encoded_inputs.token_type_ids.size() == 0) {
-                        for(int k = 0; k < encoded_inputs.input_ids.size(); k++) {
-                            encoded_inputs.token_type_ids.push_back(std::vector<int64_t>(encoded_inputs.input_ids[k].size(), 0));
-                        }
-                    }
 
-                    std::vector<int64_t> token_type_ids_flatten;
+                    
                     for (int i = 0; i < encoded_inputs.token_type_ids.size(); i++) {
                         for (int j = 0; j < encoded_inputs.token_type_ids[i].size(); j++) {
                             token_type_ids_flatten.push_back(encoded_inputs.token_type_ids[i][j]);
@@ -398,7 +397,7 @@ Option<bool> TextEmbedder::validate() {
 
     if(session_->GetInputCount() == 3) {
         auto token_type_ids_name = session_->GetInputNameAllocated(2, allocator);
-        if (std::strcmp(token_type_ids_name.get(), "token_type_ids") != 0 && std::strcmp(token_type_ids_name.get(), "pixel_values") != 0) {
+        if (std::strcmp(token_type_ids_name.get(), "token_type_ids") != 0 && !is_image_embedding_model) {
             LOG(ERROR) << "Invalid model: token_type_ids tensor not found";
             return Option<bool>(400, "Invalid model: token_type_ids tensor not found");
         }
