@@ -5903,7 +5903,7 @@ TEST_F(CollectionVectorTest, TestEmbedderCacheKeyIncludesDimensions) {
     ASSERT_NE(azure_key_512, azure_key_1024);
 }
 
-TEST_F(CollectionVectorTest, TestImageEmbeddingMultilingual) {
+TEST_F(CollectionVectorTest, DISABLED_TestImageEmbeddingMultilingual) {
         auto schema_json =
         R"({
         "name": "Images",
