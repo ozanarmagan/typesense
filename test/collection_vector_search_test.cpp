@@ -5971,3 +5971,69 @@ TEST_F(CollectionVectorTest, DISABLED_TestImageEmbeddingMultilingual) {
     ASSERT_EQ(results4["hits"].size(), 2);
     ASSERT_EQ(results4["hits"][0]["document"]["id"], "1");
 }
+
+TEST_F(CollectionVectorTest, HybridSearchWithGroupByNoKeywordMatches) {
+    nlohmann::json schema = R"({
+        "name": "products",
+        "fields": [
+            {"name": "name", "type": "string"},
+            {"name": "category", "type": "string", "facet": true},
+            {"name": "embedding", "type":"float[]", "embed":{"from": ["name"], "model_config": {"model_name": "ts/e5-small"}}}
+        ]
+    })"_json;
+
+    EmbedderManager::set_model_dir("/tmp/typesense_test/models");
+
+    auto op = collectionManager.create_collection(schema);
+    ASSERT_TRUE(op.ok());
+    Collection* coll = op.get();
+
+    // Add documents with different categories
+    nlohmann::json doc;
+    doc["name"] = "wireless bluetooth headphones";
+    doc["category"] = "electronics";
+    ASSERT_TRUE(coll->add(doc.dump()).ok());
+
+    doc["name"] = "noise cancelling earbuds";
+    doc["category"] = "electronics";
+    ASSERT_TRUE(coll->add(doc.dump()).ok());
+
+    doc["name"] = "running shoes";
+    doc["category"] = "sports";
+    ASSERT_TRUE(coll->add(doc.dump()).ok());
+
+    doc["name"] = "hiking boots";
+    doc["category"] = "sports";
+    ASSERT_TRUE(coll->add(doc.dump()).ok());
+
+    auto search_res_op = coll->search("audio equipment", {"name", "embedding"}, "", {"category"}, {}, {0}, 20, 1, FREQUENCY, {true},
+                                      Index::DROP_TOKENS_THRESHOLD,
+                                      spp::sparse_hash_set<std::string>(),
+                                      spp::sparse_hash_set<std::string>(), 10, "", 30, 5,
+                                      "", 10, {}, {}, {"category"}, 2,
+                                      "<mark>", "</mark>", {}, 1000, true, false, true, "", false, 6000 * 1000, 4, 7,
+                                      fallback,
+                                      4, {off}, 32767, 32767, 2,
+                                      false, false);
+
+    ASSERT_TRUE(search_res_op.ok());
+    auto search_res = search_res_op.get();
+
+    // Should return results from vector search grouped by category
+    ASSERT_GT(search_res["found"].get<size_t>(), 0);
+    ASSERT_TRUE(search_res.contains("grouped_hits"));
+    ASSERT_GT(search_res["grouped_hits"].size(), 0);
+
+    // Verify group structure
+    for(const auto& group : search_res["grouped_hits"]) {
+        ASSERT_TRUE(group.contains("group_key"));
+        ASSERT_TRUE(group.contains("hits"));
+        ASSERT_GT(group["hits"].size(), 0);
+        
+        // Verify all hits in the group have the same category
+        std::string group_category = group["group_key"][0].get<std::string>();
+        for(const auto& hit : group["hits"]) {
+            ASSERT_EQ(group_category, hit["document"]["category"].get<std::string>());
+        }
+    }
+}
