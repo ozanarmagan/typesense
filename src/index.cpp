@@ -2592,7 +2592,7 @@ Option<bool> Index::run_search(search_args* search_params) {
         if (!res.ok()) {
             return res;
         }
-        if (search_params->raw_result_kvs.empty() && search_params->curation_result_kvs.empty()) {
+        if (search_params->raw_result_kvs.empty() && search_params->curation_result_kvs.empty() && search_params->vector_query.field_name.empty()) {
             return Option<bool>(true);
         }
 
@@ -2657,30 +2657,34 @@ Option<bool> Index::run_search(search_args* search_params) {
             }
         }
 
-        
         filter_node_t* new_filter_tree_root = nullptr;
-        Option<bool> filter_op = filter::parse_filter_query(filter_by, search_schema, store, "", new_filter_tree_root,
-                                                            search_params->validate_field_names);
-        if (!filter_op.ok()) {
-            delete new_filter_tree_root;
-            return filter_op;
-        }
+        filter_result_iterator_t* new_iterator = nullptr;
 
-        auto new_iterator = new filter_result_iterator_t(get_collection_name(), this, new_filter_tree_root,
-                                                         search_params->enable_lazy_filter,
-                                                         search_params->max_filter_by_candidates,
-                                                         search_begin_us, search_stop_us,
-                                                         search_params->validate_field_names);
+        // Skip filter build if clauses are empty
+        if (!clauses.empty()) {
+            Option<bool> filter_op = filter::parse_filter_query(filter_by, search_schema, store, "", new_filter_tree_root,
+                                                                search_params->validate_field_names);
+            if (!filter_op.ok()) {
+                delete new_filter_tree_root;
+                return filter_op;
+            }
 
-        if (filter_root == nullptr) {
-            filter_root.reset(new_filter_tree_root);
+            new_iterator = new filter_result_iterator_t(get_collection_name(), this, new_filter_tree_root,
+                                                             search_params->enable_lazy_filter,
+                                                             search_params->max_filter_by_candidates,
+                                                             search_begin_us, search_stop_us,
+                                                             search_params->validate_field_names);
 
-            filter_result_iterator = new_iterator;
-            filter_iterator_guard.reset(new_iterator);
-        } else {
-            filter_result_iterator = new filter_result_iterator_t(AND, filter_iterator_guard.release(), new_iterator,
-                                                                  filter_root, new_filter_tree_root);
-            filter_iterator_guard.reset(filter_result_iterator);
+            if (filter_root == nullptr) {
+                filter_root.reset(new_filter_tree_root);
+
+                filter_result_iterator = new_iterator;
+                filter_iterator_guard.reset(new_iterator);
+            } else {
+                filter_result_iterator = new filter_result_iterator_t(AND, filter_iterator_guard.release(), new_iterator,
+                                                                      filter_root, new_filter_tree_root);
+                filter_iterator_guard.reset(filter_result_iterator);
+            }
         }
 
         if (!group_by_missing_value_ids.empty()) {
